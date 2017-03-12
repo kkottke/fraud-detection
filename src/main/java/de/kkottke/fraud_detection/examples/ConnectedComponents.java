@@ -1,6 +1,6 @@
-package de.kkottke.fraud_detection;
+package de.kkottke.fraud_detection.examples;
 
-import de.kkottke.fraud_detection.util.ConnectedComponentsData;
+import de.kkottke.fraud_detection.examples.util.ConnectedComponentsData;
 import org.apache.flink.api.common.functions.FlatJoinFunction;
 import org.apache.flink.api.common.functions.FlatMapFunction;
 import org.apache.flink.api.common.functions.JoinFunction;
@@ -44,7 +44,7 @@ import org.apache.flink.api.java.ExecutionEnvironment;
  *
  * <p>
  * Usage: <code>ConnectedComponents --vertices &lt;path&gt; --edges &lt;path&gt; --output &lt;path&gt; --iterations &lt;n&gt;</code><br>
- * If no parameters are provided, the program is run with default data from {@link de.kkottke.fraud_detection.util.ConnectedComponentsData} and 10 iterations.
+ * If no parameters are provided, the program is run with default data from {@link ConnectedComponentsData} and 10 iterations.
  *
  * <p>
  * This example shows how to use:

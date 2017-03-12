@@ -1,4 +1,4 @@
-package de.kkottke.fraud_detection.util;
+package de.kkottke.fraud_detection.examples.util;
 
 import java.util.LinkedList;
 import java.util.List;

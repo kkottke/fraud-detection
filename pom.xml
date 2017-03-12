@@ -107,7 +107,7 @@
 									</artifactSet>
 									<transformers>
 										<transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
-											<mainClass>de.kkottke.fraud_detection.WordCount</mainClass>
+											<mainClass>de.kkottke.fraud_detection.examples.WordCount</mainClass>
 										</transformer>
 									</transformers>
 									<createDependencyReducedPom>false</createDependencyReducedPom>

@@ -1,4 +1,4 @@
-package de.kkottke.fraud_detection;
+package de.kkottke.fraud_detection.examples;
 
 /**
  * Licensed to the Apache Software Foundation (ASF) under one
