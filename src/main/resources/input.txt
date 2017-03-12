@@ -1,0 +1,11 @@
+User1,Mail-Account,user1@mail.com
+User1,Address,street1
+User1,Bank-Account,DE-1234
+User1,Credit-Card,1234
+User2,Credit-Card,1234
+User2,Mail-Account,user2@mail.com
+User3,Mail-Account,user2@mail.com
+User3,Bank-Account,DE-5678
+User3,Credit-Card,5678
+User4,Credit-Card,5678
+User5,Mail-Account,user5@mail.com
