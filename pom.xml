@@ -33,6 +33,11 @@
 			<artifactId>flink-clients_2.10</artifactId>
 			<version>${flink.version}</version>
 		</dependency>
+		<dependency>
+			<groupId>org.apache.flink</groupId>
+			<artifactId>flink-gelly_2.10</artifactId>
+			<version>1.2.0</version>
+		</dependency>
 
 		<dependency>
 			<groupId>org.slf4j</groupId>
@@ -81,6 +86,12 @@
 					<scope>provided</scope>
 				</dependency>
 				<dependency>
+					<groupId>org.apache.flink</groupId>
+					<artifactId>flink-gelly_2.10</artifactId>
+					<version>1.2.0</version>
+					<scope>provided</scope>
+				</dependency>
+				<dependency>
 					<groupId>org.slf4j</groupId>
 					<artifactId>slf4j-log4j12</artifactId>
 					<version>${slf4j.version}</version>
@@ -112,7 +123,7 @@
 									</artifactSet>
 									<transformers>
 										<transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
-											<mainClass>de.kkottke.fraud_detection.FraudRings</mainClass>
+											<mainClass>de.kkottke.fraud_detection.FraudRings_DS</mainClass>
 										</transformer>
 									</transformers>
 									<createDependencyReducedPom>false</createDependencyReducedPom>

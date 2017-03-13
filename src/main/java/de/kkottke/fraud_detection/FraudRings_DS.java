@@ -13,7 +13,7 @@ import org.apache.flink.api.java.tuple.Tuple3;
 import org.apache.flink.api.java.tuple.Tuple6;
 import org.apache.flink.util.Collector;
 
-public class FraudRings {
+public class FraudRings_DS {
 
     public static void main(String[] args) throws Exception {
         ExecutionEnvironment env = ExecutionEnvironment.getExecutionEnvironment();
@@ -28,7 +28,8 @@ public class FraudRings {
                 vertices.iterateDelta(vertices, 100, 2);
 
         // apply the step logic: join with the edges, select the minimum neighbor, update if the component of the candidate is smaller
-        DataSet<Tuple3<String, String, String>> changes = iteration.getWorkset().join(edges).where(2).equalTo(0).with(new MessageWithComponentIDJoin())
+        DataSet<Tuple3<String, String, String>> changes =
+                iteration.getWorkset().join(edges).where(2).equalTo(0).with(new MessageWithComponentIDJoin())
                 .groupBy(0).aggregate(Aggregations.MIN, 1)
                 .join(iteration.getSolutionSet()).where(0).equalTo(2)
                 .with(new ComponentIdFilter());
@@ -45,9 +46,6 @@ public class FraudRings {
                 })
                         .join(edges).where(2).equalTo(0)
                         .join(iterationResult).where("f1.f1").equalTo(2).with(new VertexPair());
-//        result.print();
-
-//        DataSet<Tuple4<String, String, String, String[]>> result = iterationResult.coGroup(edges).where(2).equalTo(0).with(new VertexWithEdgesGroup());
 //        result.print();
 
         writeToNeo4j(result);
