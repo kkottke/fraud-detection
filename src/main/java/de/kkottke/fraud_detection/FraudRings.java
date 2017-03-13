@@ -1,22 +1,17 @@
 package de.kkottke.fraud_detection;
 
 import org.apache.commons.lang3.RandomStringUtils;
-import org.apache.flink.api.common.functions.CoGroupFunction;
-import org.apache.flink.api.common.functions.FlatJoinFunction;
-import org.apache.flink.api.common.functions.FlatMapFunction;
-import org.apache.flink.api.common.functions.JoinFunction;
+import org.apache.flink.api.common.functions.*;
 import org.apache.flink.api.java.DataSet;
 import org.apache.flink.api.java.ExecutionEnvironment;
 import org.apache.flink.api.java.aggregation.Aggregations;
 import org.apache.flink.api.java.functions.FunctionAnnotation;
+import org.apache.flink.api.java.io.neo4j.Neo4jOutputFormat;
 import org.apache.flink.api.java.operators.DeltaIteration;
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.api.java.tuple.Tuple3;
-import org.apache.flink.api.java.tuple.Tuple4;
+import org.apache.flink.api.java.tuple.Tuple6;
 import org.apache.flink.util.Collector;
-
-import java.util.ArrayList;
-import java.util.List;
 
 public class FraudRings {
 
@@ -41,9 +36,22 @@ public class FraudRings {
         // close the delta iteration (delta and new workset are identical)
         DataSet<Tuple3<String, String, String>> iterationResult = iteration.closeWith(changes, changes);
 
-        DataSet<Tuple4<String, String, String, String[]>> result = iterationResult.coGroup(edges).where(2).equalTo(0).with(new VertexWithEdgesGroup());
+        DataSet<Tuple6<String, String, String, String, String, String>> result =
+                iterationResult.filter(new FilterFunction<Tuple3<String, String, String>>() {
+                    @Override
+                    public boolean filter(Tuple3<String, String, String> value) throws Exception {
+                        return value.f1.equals("User");
+                    }
+                })
+                        .join(edges).where(2).equalTo(0)
+                        .join(iterationResult).where("f1.f1").equalTo(2).with(new VertexPair());
+//        result.print();
 
-        result.print();
+//        DataSet<Tuple4<String, String, String, String[]>> result = iterationResult.coGroup(edges).where(2).equalTo(0).with(new VertexWithEdgesGroup());
+//        result.print();
+
+        writeToNeo4j(result);
+        env.execute();
     }
 
     // *************************************************************************
@@ -107,24 +115,78 @@ public class FraudRings {
         }
     }
 
-    public static final class VertexWithEdgesGroup implements CoGroupFunction<Tuple3<String, String, String>, Tuple2<String, String>, Tuple4<String, String, String, String[]>> {
-        List<String> neighbors = new ArrayList<>();
-        Tuple4<String, String, String, String[]> result = new Tuple4<>();
+    public static final class VertexPair implements JoinFunction<Tuple2<Tuple3<String, String, String>, Tuple2<String, String>>, Tuple3<String, String, String>, Tuple6<String, String, String, String, String, String>> {
+        Tuple6<String, String, String, String, String, String> result = new Tuple6<>();
 
         @Override
-        public void coGroup(Iterable<Tuple3<String, String, String>> vertices, Iterable<Tuple2<String, String>> edges,
-                            Collector<Tuple4<String, String, String, String[]>> out) throws Exception {
-            Tuple3<String, String, String> vertex = vertices.iterator().next();
-            result.f0 = vertex.f0;
-            result.f1 = vertex.f1;
-            result.f2 = vertex.f2;
+        public Tuple6<String, String, String, String, String, String> join(
+                Tuple2<Tuple3<String, String, String>, Tuple2<String, String>> vertexWithEdge, Tuple3<String, String, String> vertex) {
+            result.f0 = vertexWithEdge.f0.f0;
+            result.f1 = vertexWithEdge.f0.f1;
+            result.f2 = vertexWithEdge.f0.f2;
+            result.f3 = vertex.f0;
+            result.f4 = vertex.f1;
+            result.f5 = vertex.f2;
 
-            neighbors.clear();
-            for (Tuple2<String, String> edge : edges) {
-                neighbors.add(edge.f1);
-            }
-            result.f3 = neighbors.toArray(new String[neighbors.size()]);
-            out.collect(result);
+            return result;
+        }
+    }
+
+    private static void writeToNeo4j(DataSet<Tuple6<String, String, String, String, String, String>> result) {
+        Neo4jOutputFormat.Builder outputBuilder = Neo4jOutputFormat
+                .buildNeo4jOutputFormat()
+                .setRestURI("http://192.168.99.100:7474/db/data/")
+                .setUsername("neo4j")
+                .setPassword("secret")
+                .setConnectTimeout(1000)
+                .setReadTimeout(1000)
+                .setCypherQuery("UNWIND {inserts} AS i " +
+                        "MERGE (user:User {name: i.name1, ringId: i.ringId1}) " +
+                        "MERGE (prop:Property {name: i.name2, ringId: i.ringId2}) " +
+                        "MERGE (user)-[:has]->(prop)")
+                .addParameterKey(0, "ringId1")
+                .addParameterKey(1, "type1")
+                .addParameterKey(2, "name1")
+                .addParameterKey(3, "ringId2")
+                .addParameterKey(4, "type2")
+                .addParameterKey(5, "name2")
+                .setTaskBatchSize(100);
+        Neo4jOutputFormat<Tuple6<String, String, String, String, String, String>> userOutput = outputBuilder.finish();
+        result.output(userOutput).setParallelism(1);
+
+//        Neo4jOutputFormat<Tuple6<String, String, String, String, String, String>> mailOutput = outputBuilder
+//                .setCypherQuery("UNWIND {inserts} AS i " +
+//                        "MERGE (user:User {name: i.name1, ringId: i.ringId1}) " +
+//                        "MERGE (prop:Address {name: i.name2, ringId: i.ringId2}) " +
+//                        "MERGE (user)-[:has]->(prop)").finish();
+//        result.filter(new TypeFilter("Address")).output(mailOutput);
+
+//        Neo4jOutputFormat<Tuple6<String, String, String, String, String, String>> addressOutput = outputBuilder
+//                .setCypherQuery("UNWIND {inserts} AS i " +
+//                        "MERGE (user:User {name: i.name1, ringId: i.ringId1}) " +
+//                        "MERGE (prop:Bank {name: i.name2, ringId: i.ringId2}) " +
+//                        "MERGE (user)-[:has]->(prop)").finish();
+//        result.filter(new TypeFilter("Bank-Account")).output(addressOutput);
+//
+//        Neo4jOutputFormat<Tuple6<String, String, String, String, String, String>> bankOutput = outputBuilder
+//                .setCypherQuery("UNWIND {inserts} AS i " +
+//                        "MERGE (user:User {name: i.name1, ringId: i.ringId1}) " +
+//                        "MERGE (prop:Credit {name: i.name2, ringId: i.ringId2}) " +
+//                        "MERGE (user)-[:has]->(prop)").finish();
+//        result.filter(new TypeFilter("Credit-Card")).output(bankOutput);
+    }
+
+    private static final class TypeFilter implements FilterFunction<Tuple6<String, String, String, String, String, String>> {
+
+        private final String type;
+
+        private TypeFilter(String type) {
+            this.type = type;
+        }
+
+        @Override
+        public boolean filter(Tuple6<String, String, String, String, String, String> value) throws Exception {
+            return type.equals(value.f4);
         }
     }
 }

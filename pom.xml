@@ -44,6 +44,11 @@
 			<artifactId>log4j</artifactId>
 			<version>${log4j.version}</version>
 		</dependency>
+		<dependency>
+			<groupId>org.s1ck</groupId>
+			<artifactId>flink-neo4j</artifactId>
+			<version>0.1-SNAPSHOT</version>
+		</dependency>
 		
 	</dependencies>
 
