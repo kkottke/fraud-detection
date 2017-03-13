@@ -21,7 +21,7 @@ public class FraudRings_DS {
 
         DataSet<Tuple4<String, String, String, String>> input = env.readCsvFile("/Users/kkt/workspaces/fraud-detection/src/main/resources/input.txt")
                 .types(String.class, String.class, String.class, String.class);
-        DataSet<Tuple3<String, String, String>> vertices = input.flatMap(new VertexExtractor()).distinct(2);
+        DataSet<Tuple3<String, String, String>> vertices = input.flatMap(new VertexExtractor()).distinct(0);
         DataSet<Tuple2<String, String>> edges = input.flatMap(new EdgeExtractor());
 
         // open a delta iteration
