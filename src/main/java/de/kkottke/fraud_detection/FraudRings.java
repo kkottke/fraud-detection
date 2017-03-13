@@ -133,7 +133,7 @@ public class FraudRings {
     }
 
     private static void writeToNeo4j(DataSet<Tuple6<String, String, String, String, String, String>> result) {
-        Neo4jOutputFormat.Builder outputBuilder = Neo4jOutputFormat
+        Neo4jOutputFormat<Tuple6<String, String, String, String, String, String>> outputFormat = Neo4jOutputFormat
                 .buildNeo4jOutputFormat()
                 .setRestURI("http://192.168.99.100:7474/db/data/")
                 .setUsername("neo4j")
@@ -150,43 +150,8 @@ public class FraudRings {
                 .addParameterKey(3, "ringId2")
                 .addParameterKey(4, "type2")
                 .addParameterKey(5, "name2")
-                .setTaskBatchSize(100);
-        Neo4jOutputFormat<Tuple6<String, String, String, String, String, String>> userOutput = outputBuilder.finish();
-        result.output(userOutput).setParallelism(1);
-
-//        Neo4jOutputFormat<Tuple6<String, String, String, String, String, String>> mailOutput = outputBuilder
-//                .setCypherQuery("UNWIND {inserts} AS i " +
-//                        "MERGE (user:User {name: i.name1, ringId: i.ringId1}) " +
-//                        "MERGE (prop:Address {name: i.name2, ringId: i.ringId2}) " +
-//                        "MERGE (user)-[:has]->(prop)").finish();
-//        result.filter(new TypeFilter("Address")).output(mailOutput);
-
-//        Neo4jOutputFormat<Tuple6<String, String, String, String, String, String>> addressOutput = outputBuilder
-//                .setCypherQuery("UNWIND {inserts} AS i " +
-//                        "MERGE (user:User {name: i.name1, ringId: i.ringId1}) " +
-//                        "MERGE (prop:Bank {name: i.name2, ringId: i.ringId2}) " +
-//                        "MERGE (user)-[:has]->(prop)").finish();
-//        result.filter(new TypeFilter("Bank-Account")).output(addressOutput);
-//
-//        Neo4jOutputFormat<Tuple6<String, String, String, String, String, String>> bankOutput = outputBuilder
-//                .setCypherQuery("UNWIND {inserts} AS i " +
-//                        "MERGE (user:User {name: i.name1, ringId: i.ringId1}) " +
-//                        "MERGE (prop:Credit {name: i.name2, ringId: i.ringId2}) " +
-//                        "MERGE (user)-[:has]->(prop)").finish();
-//        result.filter(new TypeFilter("Credit-Card")).output(bankOutput);
+                .setTaskBatchSize(100).finish();
+        result.output(outputFormat).setParallelism(1);
     }
 
-    private static final class TypeFilter implements FilterFunction<Tuple6<String, String, String, String, String, String>> {
-
-        private final String type;
-
-        private TypeFilter(String type) {
-            this.type = type;
-        }
-
-        @Override
-        public boolean filter(Tuple6<String, String, String, String, String, String> value) throws Exception {
-            return type.equals(value.f4);
-        }
-    }
 }
