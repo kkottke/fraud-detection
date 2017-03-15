@@ -54,6 +54,21 @@
 			<artifactId>flink-neo4j</artifactId>
 			<version>0.1-SNAPSHOT</version>
 		</dependency>
+		<dependency>
+			<groupId>org.gephi</groupId>
+			<artifactId>graph-api</artifactId>
+			<version>0.9.1</version>
+		</dependency>
+		<dependency>
+			<groupId>org.gephi</groupId>
+			<artifactId>io-exporter-api</artifactId>
+			<version>0.9.1</version>
+		</dependency>
+		<dependency>
+			<groupId>org.gephi</groupId>
+			<artifactId>io-exporter-plugin</artifactId>
+			<version>0.9.1</version>
+		</dependency>
 		
 	</dependencies>
 

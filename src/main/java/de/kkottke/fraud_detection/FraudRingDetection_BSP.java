@@ -1,5 +1,6 @@
 package de.kkottke.fraud_detection;
 
+import de.kkottke.fraud_detection.output.GephiOutputFormat;
 import de.kkottke.fraud_detection.util.EdgeExtractor;
 import de.kkottke.fraud_detection.util.VertexExtractor;
 import org.apache.flink.api.common.functions.FilterFunction;
@@ -36,7 +37,10 @@ public class FraudRingDetection_BSP {
                 return value.getSrcVertex().getValue().f0.equals("user");
             }
         });
-        result.print();
+//        result.print();
+
+        result.output(new GephiOutputFormat()).setParallelism(1);
+        env.execute();
     }
 
     // *************************************************************************
