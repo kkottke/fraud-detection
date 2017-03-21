@@ -28,12 +28,16 @@ public class FraudRings_DS {
         DeltaIteration<Tuple3<String, String, String>, Tuple3<String, String, String>> iteration =
                 vertices.iterateDelta(vertices, 100, 0);
 
-        // apply the step logic: join with the edges, select the minimum neighbor, update if the component of the candidate is smaller
+        // step logic:  join with the edges,
+        //              select the minimum message,
+        //              update if the component of the candidate is smaller
         DataSet<Tuple3<String, String, String>> changes =
-                iteration.getWorkset().join(edges).where(0).equalTo(0).with(new MessageWithComponentIDJoin())
-                .groupBy(0).aggregate(Aggregations.MIN, 1)
+                iteration.getWorkset()
+                .join(edges).where(0).equalTo(0)
+                        .with(new MessageWithComponentIDJoin()).name("Join_Edges")
+                .groupBy(0).aggregate(Aggregations.MIN, 1).name("Min_Message")
                 .join(iteration.getSolutionSet()).where(0).equalTo(0)
-                .with(new ComponentIdFilter());
+                        .with(new ComponentIdFilter()).name("Update");
 
         // close the delta iteration (delta and new workset are identical)
         DataSet<Tuple3<String, String, String>> iterationResult = iteration.closeWith(changes, changes);
