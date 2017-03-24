@@ -1,6 +1,5 @@
 package de.kkottke.fraud_detection;
 
-import de.kkottke.fraud_detection.output.GephiOutputFormat;
 import de.kkottke.fraud_detection.util.EdgeExtractor;
 import de.kkottke.fraud_detection.util.VertexExtractor;
 import org.apache.flink.api.common.functions.FilterFunction;
@@ -8,7 +7,6 @@ import org.apache.flink.api.java.DataSet;
 import org.apache.flink.api.java.ExecutionEnvironment;
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.api.java.tuple.Tuple3;
-import org.apache.flink.api.java.tuple.Tuple4;
 import org.apache.flink.graph.Graph;
 import org.apache.flink.graph.Triplet;
 import org.apache.flink.graph.Vertex;
@@ -22,36 +20,36 @@ public class FraudRingDetection_BSP {
     public static void main(String[] args) throws Exception {
         ExecutionEnvironment env = ExecutionEnvironment.getExecutionEnvironment();
 
-        DataSet<Tuple4<String, String, String, String>> input = env.readCsvFile("/Users/kkt/workspaces/fraud-detection/src/main/resources/input.txt")
-                .types(String.class, String.class, String.class, String.class);
-        DataSet<Tuple2<String, Tuple2<String, String>>> vertices = input.flatMap(new VertexExtractor()).distinct(0);
+        DataSet<Tuple2<String, String>> input = env.readCsvFile("/Users/kkt/workspaces/fraud-detection/src/main/resources/input.txt")
+                .types(String.class, String.class);
+        DataSet<Tuple2<String, String>> vertices = input.flatMap(new VertexExtractor()).distinct(0);
         DataSet<Tuple3<String, String, NullValue>> edges = input.flatMap(new EdgeExtractor(false));
 
-        Graph<String, Tuple2<String, String>, NullValue> graph = Graph.fromTupleDataSet(vertices, edges, env);
+        Graph<String, String, NullValue> graph = Graph.fromTupleDataSet(vertices, edges, env);
 
-        Graph<String, Tuple2<String, String>, NullValue> resultGraph = graph.runVertexCentricIteration(new LabellingFunction(), new LabelCombiner(), 100);
+        Graph<String, String, NullValue> resultGraph = graph.runVertexCentricIteration(new LabellingFunction(), new LabelCombiner(), 100);
 
-        DataSet<Triplet<String, Tuple2<String, String>, NullValue>> result = resultGraph.getTriplets().filter(new FilterFunction<Triplet<String, Tuple2<String, String>, NullValue>>() {
+        DataSet<Triplet<String, String, NullValue>> result = resultGraph.getTriplets().filter(new FilterFunction<Triplet<String, String, NullValue>>() {
             @Override
-            public boolean filter(Triplet<String, Tuple2<String, String>, NullValue> value) throws Exception {
-                return value.getSrcVertex().getValue().f0.equals("user");
+            public boolean filter(Triplet<String, String, NullValue> value) throws Exception {
+                return value.getSrcVertex().getId().endsWith("user");
             }
         });
-//        result.print();
+        result.print();
 
-        result.output(new GephiOutputFormat()).setParallelism(1);
-        env.execute();
+//        result.output(new GephiOutputFormat()).setParallelism(1);
+//        env.execute();
     }
 
     // *************************************************************************
     //     USER FUNCTIONS
     // *************************************************************************
 
-    public static final class LabellingFunction extends ComputeFunction<String, Tuple2<String, String>, NullValue, String> {
+    public static final class LabellingFunction extends ComputeFunction<String, String, NullValue, String> {
 
         @Override
-        public void compute(Vertex<String, Tuple2<String, String>> vertex, MessageIterator<String> messages) throws Exception {
-            String label = vertex.getValue().f1;
+        public void compute(Vertex<String, String> vertex, MessageIterator<String> messages) throws Exception {
+            String label = vertex.getValue();
 
             if (getSuperstepNumber() == 1) {
                 sendMessageToAllNeighbors(label);
@@ -62,10 +60,8 @@ public class FraudRingDetection_BSP {
                     }
                 }
 
-                if (!vertex.getValue().f1.equals(label)) {
-                    Tuple2<String, String> value = vertex.getValue();
-                    value.f1 = label;
-                    setNewVertexValue(value);
+                if (!vertex.getValue().equals(label)) {
+                    setNewVertexValue(label);
                     sendMessageToAllNeighbors(label);
                 }
             }

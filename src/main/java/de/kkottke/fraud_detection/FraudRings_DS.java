@@ -1,6 +1,7 @@
 package de.kkottke.fraud_detection;
 
-import org.apache.commons.lang3.RandomStringUtils;
+import de.kkottke.fraud_detection.util.EdgeExtractor;
+import de.kkottke.fraud_detection.util.VertexExtractor;
 import org.apache.flink.api.common.functions.*;
 import org.apache.flink.api.java.DataSet;
 import org.apache.flink.api.java.ExecutionEnvironment;
@@ -10,8 +11,8 @@ import org.apache.flink.api.java.io.neo4j.Neo4jOutputFormat;
 import org.apache.flink.api.java.operators.DeltaIteration;
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.api.java.tuple.Tuple3;
-import org.apache.flink.api.java.tuple.Tuple4;
 import org.apache.flink.api.java.tuple.Tuple6;
+import org.apache.flink.types.NullValue;
 import org.apache.flink.util.Collector;
 
 public class FraudRings_DS {
@@ -19,19 +20,19 @@ public class FraudRings_DS {
     public static void main(String[] args) throws Exception {
         ExecutionEnvironment env = ExecutionEnvironment.getExecutionEnvironment();
 
-        DataSet<Tuple4<String, String, String, String>> input = env.readCsvFile("/Users/kkt/workspaces/fraud-detection/src/main/resources/input.txt")
-                .types(String.class, String.class, String.class, String.class);
-        DataSet<Tuple3<String, String, String>> vertices = input.flatMap(new VertexExtractor()).distinct(0);
-        DataSet<Tuple2<String, String>> edges = input.flatMap(new EdgeExtractor());
+        DataSet<Tuple2<String, String>> input = env.readCsvFile("/Users/kkt/workspaces/fraud-detection/src/main/resources/input.txt")
+                .types(String.class, String.class);
+        DataSet<Tuple2<String, String>> vertices = input.flatMap(new VertexExtractor()).distinct(0);
+        DataSet<Tuple3<String, String, NullValue>> edges = input.flatMap(new EdgeExtractor(false));
 
         // open a delta iteration
-        DeltaIteration<Tuple3<String, String, String>, Tuple3<String, String, String>> iteration =
+        DeltaIteration<Tuple2<String, String>, Tuple2<String, String>> iteration =
                 vertices.iterateDelta(vertices, 100, 0);
 
         // step logic:  join with the edges,
         //              select the minimum message,
         //              update if the component of the candidate is smaller
-        DataSet<Tuple3<String, String, String>> changes =
+        DataSet<Tuple2<String, String>> changes =
                 iteration.getWorkset()
                 .join(edges).where(0).equalTo(0)
                         .with(new MessageWithComponentIDJoin()).name("Join_Edges")
@@ -40,96 +41,62 @@ public class FraudRings_DS {
                         .with(new ComponentIdFilter()).name("Update");
 
         // close the delta iteration (delta and new workset are identical)
-        DataSet<Tuple3<String, String, String>> iterationResult = iteration.closeWith(changes, changes);
+        DataSet<Tuple2<String, String>> iterationResult = iteration.closeWith(changes, changes);
 
         DataSet<Tuple6<String, String, String, String, String, String>> result =
-                iterationResult.filter(new FilterFunction<Tuple3<String, String, String>>() {
+                iterationResult.filter(new FilterFunction<Tuple2<String, String>>() {
                     @Override
-                    public boolean filter(Tuple3<String, String, String> value) throws Exception {
-                        return value.f1.equals("user");
+                    public boolean filter(Tuple2<String, String> value) throws Exception {
+                        return value.f0.endsWith("user");
                     }
                 })
                         .join(edges).where(0).equalTo(0)
                         .join(iterationResult).where("f1.f1").equalTo(0).with(new VertexPair());
-//        result.print();
+        result.print();
 
-        writeToNeo4j(result);
-        env.execute();
+//        writeToNeo4j(result);
+//        env.execute();
     }
 
     // *************************************************************************
     //     USER FUNCTIONS
     // *************************************************************************
 
-    public static final class VertexExtractor implements FlatMapFunction<Tuple4<String, String, String, String>, Tuple3<String, String, String>> {
-
-        Tuple3<String, String, String> source = new Tuple3<>();
-        Tuple3<String, String, String> target = new Tuple3<>();
-
-        @Override
-        public void flatMap(Tuple4<String, String, String, String> line, Collector<Tuple3<String, String, String>> out) {
-            source.f0 = line.f0;
-            source.f1 = line.f1;
-            source.f2 = RandomStringUtils.randomAlphanumeric(10);
-            out.collect(source);
-
-            target.f0 = line.f2;
-            target.f1 = line.f3;
-            target.f2 = RandomStringUtils.randomAlphanumeric(10);
-            out.collect(target);
-        }
-    }
-
-    public static final class EdgeExtractor implements FlatMapFunction<Tuple4<String, String, String, String>, Tuple2<String, String>> {
-
-        Tuple2<String, String> edge1 = new Tuple2<>();
-        Tuple2<String, String> edge2 = new Tuple2<>();
-
-        @Override
-        public void flatMap(Tuple4<String, String, String, String> line, Collector<Tuple2<String, String>> out) {
-            edge1.f0 = line.f0;
-            edge1.f1 = line.f2;
-            out.collect(edge1);
-
-            edge2.f0 = line.f2;
-            edge2.f1 = line.f0;
-            out.collect(edge2);
-        }
-    }
-
     @FunctionAnnotation.ForwardedFieldsFirst("f0->f1")
     @FunctionAnnotation.ForwardedFieldsSecond("f1->f0")
-    public static final class MessageWithComponentIDJoin implements JoinFunction<Tuple3<String, String, String>, Tuple2<String, String>, Tuple2<String, String>> {
+    public static final class MessageWithComponentIDJoin implements JoinFunction<Tuple2<String, String>, Tuple3<String, String, NullValue>, Tuple2<String, String>> {
 
         @Override
-        public Tuple2<String, String> join(Tuple3<String, String, String> vertex, Tuple2<String, String> edge) {
-            return new Tuple2<>(edge.f1, vertex.f2);
+        public Tuple2<String, String> join(Tuple2<String, String> vertex, Tuple3<String, String, NullValue> edge) {
+            return new Tuple2<>(edge.f1, vertex.f1);
         }
     }
 
-    public static final class ComponentIdFilter implements FlatJoinFunction<Tuple2<String, String>, Tuple3<String, String, String>, Tuple3<String, String, String>> {
+    public static final class ComponentIdFilter implements FlatJoinFunction<Tuple2<String, String>, Tuple2<String, String>, Tuple2<String, String>> {
 
         @Override
-        public void join(Tuple2<String, String> message, Tuple3<String, String, String> vertex, Collector<Tuple3<String, String, String>> out) {
-            if (message.f1.compareTo(vertex.f2) < 0) {
-                vertex.f2 = message.f1;
+        public void join(Tuple2<String, String> message, Tuple2<String, String> vertex, Collector<Tuple2<String, String>> out) {
+            if (message.f1.compareTo(vertex.f1) < 0) {
+                vertex.f1 = message.f1;
                 out.collect(vertex);
             }
         }
     }
 
-    public static final class VertexPair implements JoinFunction<Tuple2<Tuple3<String, String, String>, Tuple2<String, String>>, Tuple3<String, String, String>, Tuple6<String, String, String, String, String, String>> {
+    public static final class VertexPair implements JoinFunction<Tuple2<Tuple2<String, String>, Tuple3<String, String, NullValue>>, Tuple2<String, String>, Tuple6<String, String, String, String, String, String>> {
         Tuple6<String, String, String, String, String, String> result = new Tuple6<>();
 
         @Override
         public Tuple6<String, String, String, String, String, String> join(
-                Tuple2<Tuple3<String, String, String>, Tuple2<String, String>> vertexWithEdge, Tuple3<String, String, String> vertex) {
-            result.f0 = vertexWithEdge.f0.f0;
-            result.f1 = vertexWithEdge.f0.f1;
-            result.f2 = vertexWithEdge.f0.f2;
-            result.f3 = vertex.f0;
-            result.f4 = vertex.f1;
-            result.f5 = vertex.f2;
+                Tuple2<Tuple2<String, String>, Tuple3<String, String, NullValue>> vertexWithEdge, Tuple2<String, String> vertex) {
+            String[] idType = vertexWithEdge.f0.f0.split(":");
+            result.f0 = idType[0];
+            result.f1 = idType[1];
+            result.f2 = vertexWithEdge.f0.f1;
+            idType = vertex.f0.split(":");
+            result.f3 = idType[0];
+            result.f4 = idType[1];
+            result.f5 = vertex.f1;
 
             return result;
         }
