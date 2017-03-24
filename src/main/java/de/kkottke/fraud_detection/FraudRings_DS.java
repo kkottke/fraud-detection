@@ -52,10 +52,10 @@ public class FraudRings_DS {
                 })
                         .join(edges).where(0).equalTo(0)
                         .join(iterationResult).where("f1.f1").equalTo(0).with(new VertexPair());
-        result.print();
+//        result.print();
 
-//        writeToNeo4j(result);
-//        env.execute();
+        writeToNeo4j(result);
+        env.execute();
     }
 
     // *************************************************************************

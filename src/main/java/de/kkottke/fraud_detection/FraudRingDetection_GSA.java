@@ -4,8 +4,8 @@ import de.kkottke.fraud_detection.util.EdgeExtractor;
 import de.kkottke.fraud_detection.util.VertexExtractor;
 import org.apache.flink.api.java.DataSet;
 import org.apache.flink.api.java.ExecutionEnvironment;
-import org.apache.flink.api.java.tuple.Tuple2;
-import org.apache.flink.api.java.tuple.Tuple3;
+import org.apache.flink.api.java.io.neo4j.Neo4jOutputFormat;
+import org.apache.flink.api.java.tuple.*;
 import org.apache.flink.graph.EdgeDirection;
 import org.apache.flink.graph.Graph;
 import org.apache.flink.graph.Triplet;
@@ -30,7 +30,9 @@ public class FraudRingDetection_GSA {
                 new GenerateLabel(), new ChooseMinLabel(), new UpdateLabel(), 100, config);
 
         DataSet<Triplet<String, String, NullValue>> result = resultGraph.getTriplets();
-        result.print();
+//        result.print();
+        writeToNeo4j(result.project(0, 1, 2, 3));
+        env.execute();
     }
 
     // *************************************************************************
@@ -61,5 +63,25 @@ public class FraudRingDetection_GSA {
                 setResult(newValue);
             }
         }
+    }
+
+    private static void writeToNeo4j(DataSet<Tuple4<String, String, String, String>> result) {
+        Neo4jOutputFormat<Tuple4<String, String, String, String>> outputFormat = Neo4jOutputFormat
+                .buildNeo4jOutputFormat()
+                .setRestURI("http://192.168.99.100:7474/db/data/")
+                .setUsername("neo4j")
+                .setPassword("secret")
+                .setConnectTimeout(1000)
+                .setReadTimeout(1000)
+                .setCypherQuery("UNWIND {inserts} AS i " +
+                        "MERGE (user:User {name: i.name1, ringId: i.ringId1}) " +
+                        "MERGE (prop:Property {name: i.name2, ringId: i.ringId2}) " +
+                        "MERGE (user)-[:has]->(prop)")
+                .addParameterKey("name1")
+                .addParameterKey("name2")
+                .addParameterKey("ringId1")
+                .addParameterKey("ringId2")
+                .setTaskBatchSize(100).finish();
+        result.output(outputFormat).setParallelism(1);
     }
 }
