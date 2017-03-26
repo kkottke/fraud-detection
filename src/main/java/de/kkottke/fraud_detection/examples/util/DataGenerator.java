@@ -8,7 +8,7 @@ public class DataGenerator {
     public static void main(String[] args) throws IOException {
         FileWriter writer = new FileWriter("/Users/kkt/Projekte/Flink/input/testdata.csv");
 
-        for (int i = 0; i < 100000; i++) {
+        for (int i = 0; i < 200000; i++) {
             writer.write("user" + i + ":user,0162-" + i + ":handy\n");
             writer.write("user" + i + ":user,street-" + i + ":post\n");
             writer.write("user" + i + ":user,user-" + i + "@mail.com:mail\n");

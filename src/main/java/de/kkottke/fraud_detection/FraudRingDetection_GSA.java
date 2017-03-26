@@ -27,6 +27,7 @@ public class FraudRingDetection_GSA {
 
         GSAConfiguration config = new GSAConfiguration();
         config.setDirection(EdgeDirection.ALL);
+        config.setParallelism(2);
         Graph<String, String, NullValue> resultGraph = graph.runGatherSumApplyIteration(
                 new GenerateLabel(), new ChooseMinLabel(), new UpdateLabel(), 100, config);
 
